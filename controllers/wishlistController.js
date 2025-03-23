@@ -1,7 +1,6 @@
-// controllers/wishlistController.js
 const Wishlist = require("../models/Wishlist");
 const { findBookIdByISBN } = require("../services/bookService");
-const Book = require('../models/Books'); // Import Book model
+const Book = require('../models/Books'); 
 
 async function getWishlist(req, res) {
   try {
