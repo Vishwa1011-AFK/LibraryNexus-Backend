@@ -3,7 +3,7 @@ const fs = require("fs");
 const path = require("path");
 const nodemailer = require("nodemailer");
 const userService = require("../services/userService");
-const { generateOTP, sendOTPEmail } = require("../utils/otpUtils");
+const { generateOTP } = require("../utils/otpUtils");
 const appEmail = process.env.APP_EMAIL;
 const appPassword = process.env.APP_PASSWORD;
 
@@ -31,6 +31,8 @@ module.exports = {
 
       const otp = generateOTP();
       user.otp = otp;
+      const otpExpiry = new Date(Date.now() + 5 * 60 * 1000);
+      user.otpExpiry = otpExpiry;
       await user.save();
 
       const mailOptions = {
@@ -85,6 +87,8 @@ module.exports = {
 
       const otp = generateOTP();
       user.otp = otp;
+      const otpExpiry = new Date(Date.now() + 5 * 60 * 1000);
+      user.otpExpiry = otpExpiry;
       await user.save();
 
       const mailOptions = {
@@ -137,6 +141,13 @@ module.exports = {
         return res.status(403).json({
           msg: "Invalid OTP",
         });
+      }
+      
+      if (user.otpExpiry < Date.now()) {
+        user.otp = undefined;  // Invalidate OTP
+        user.otpExpiry = undefined;
+        await user.save();
+        return res.status(400).json({ msg: "OTP has expired" });
       }
 
       user.password = newPassword;

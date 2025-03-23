@@ -19,6 +19,17 @@ async function addBookToWishlist(req, res) {
       wishlist = new Wishlist({ userId: req.body.userId, books: [] });
     }
     wishlist.books.push(getBookByISBN(req.body.isbn));
+    const bookId = await findBookIdByISBN(req.body.isbn);
+    const book = await Book.findById(bookId);
+    if (!book) {
+      return res.status(404).send("Book not found");
+    }
+    wishlist.books.push({
+      isbn: book.isbn,
+      author: book.author,
+      title: book.title,
+      addedAt: Date.now()
+    });
     await wishlist.save();
     res.status(201).json(wishlist);
   } catch (err) {
@@ -32,7 +43,7 @@ async function removeBookFromWishlist(req, res) {
     if (!wishlist) return res.status(404).send("Wishlist not found");
 
     wishlist.books = wishlist.books.filter(
-      (book) => book.bookId !== findBookIdByISBN(req.params.isbn)
+      (book) => book.isbn !== req.params.isbn
     );
     await wishlist.save();
     res.status(200).json(wishlist);

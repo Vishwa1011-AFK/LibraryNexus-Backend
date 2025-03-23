@@ -32,19 +32,8 @@ async function findMailById(user_id) {
   }
 }
 
-async function verifyOTP(email, otp) {
-  try {
-    const user = await User.findOne({ email, otp });
-    return user;
-  } catch (error) {
-    console.error("Error verifying OTP:", error);
-    throw error;
-  }
-}
-
 module.exports = {
   findUserByEmail,
-  verifyOTP,
   findUserById,
   findMailById,
 };

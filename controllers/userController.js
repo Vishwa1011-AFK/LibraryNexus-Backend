@@ -1,4 +1,5 @@
 const User = require("../models/Users");
+const RefreshToken = require("../models/RefreshToken");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const emailVerify = require("../services/emailValidator");
@@ -8,7 +9,6 @@ require("dotenv").config();
 const { findUserById } = require("../services/userService");
 const accessTokenSecret = process.env.ACCESS_TOKEN_SECRET;
 const refreshTokenSecret = process.env.REFRESH_TOKEN_SECRET;
-let refreshTokens = [];
 
 async function userExists(email, password) {
   let userExist = false;
@@ -103,7 +103,12 @@ module.exports = {
       expiresIn: "30d",
     });
 
-    refreshTokens.push(refreshToken);
+    let newRefreshToken = await RefreshToken.create({
+      token: refreshToken,
+      user: existingUser._id,
+      expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+  });
+
     res.cookie("refreshToken", refreshToken, { httpOnly: true, secure: true });
 
     return res.json({
@@ -164,7 +169,15 @@ module.exports = {
   async createAccessToken(res, req) {
     const refreshToken = req.cookies.refreshToken;
     if (!refreshToken) return res.sendStatus(401);
-    if (!refreshTokens.includes(refreshToken)) return res.sendStatus(403);
+    const refreshTokenDoc = await RefreshToken.findOne({ token: refreshToken }).populate('user');
+    if (!refreshTokenDoc) {
+        return res.sendStatus(403);
+    }
+
+    if (refreshTokenDoc.expiryDate < new Date()) {
+        await RefreshToken.findByIdAndDelete(refreshTokenDoc._id);
+        return res.status(401).json({ error: "Token Expired" });
+    }
 
     jwt.verify(refreshToken, refreshTokenSecret, (err, user) => {
       if (err) {
@@ -186,7 +199,7 @@ module.exports = {
 
   async logout(req, res) {
     const refreshToken = req.cookies.refreshToken;
-    refreshTokens = refreshTokens.filter((t) => t !== refreshToken);
+    await RefreshToken.findOneAndDelete({ token: refreshToken });
     res.clearCookie("refreshToken");
     res.sendStatus(204);
   },

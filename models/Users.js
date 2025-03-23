@@ -15,6 +15,7 @@ const UserSchema = new mongoose.Schema(
     password: { type: String, required: [true] },
     birthDate: { type: Date },
     otp: { type: String },
+    otpExpiry: { type: Date },
     books_issued: [{ type: mongoose.Schema.Types.ObjectId, ref: "Book" }],
     book_issue_history: [
       {
