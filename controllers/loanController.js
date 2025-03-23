@@ -23,7 +23,7 @@ async function issueBook(req, res) {
     });
 
     await loan.save();
-    book.issued = true;
+    BookInventory.availableCopies -= 1;
     book.issue_history.push({
       user_id: user._id,
       issue_date: loan.issueDate,
@@ -74,7 +74,7 @@ async function returnBook(req, res) {
     loan.returned = true;
     await loan.save();
 
-    book.issued = false;
+    BookInventory.availableCopies += 1;
     const historyEntry = book.issue_history.find(
       (history) => history.user_id.equals(user._id) && !history.return_date
     );
