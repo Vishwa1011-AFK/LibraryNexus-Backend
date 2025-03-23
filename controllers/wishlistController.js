@@ -17,7 +17,7 @@ async function addBookToWishlist(req, res) {
         let wishlist = await Wishlist.findOne({ userId: req.params.userId });
 
         if (!wishlist) {
-            wishlist = new Wishlist({ userId: req.body.userId, books: [] });
+          wishlist = new Wishlist({ userId: req.params.userId, books: [] });
         }
 
         const bookId = await findBookIdByISBN(req.body.isbn);

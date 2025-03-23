@@ -24,16 +24,27 @@ async function findUserById(user_id) {
 
 async function findMailById(user_id) {
   try {
-    const email = await User.findOne(user_id).email;
-    return email;
+    const user = await User.findById(user_id);
+    return user?.email;
   } catch (error) {
     console.error("Error finding email:", error);
     throw error;
   }
 }
 
+async function verifyOTP(email, otp) {
+  try {
+    const user = await User.findOne({ email, otp });
+    return user;
+  } catch (error) {
+    console.error("Error verifying OTP:", error);
+    throw error;
+  }
+}
+
 module.exports = {
   findUserByEmail,
+  verifyOTP,
   findUserById,
   findMailById,
 };

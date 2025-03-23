@@ -150,7 +150,8 @@ module.exports = {
         return res.status(400).json({ msg: "OTP has expired" });
       }
 
-      user.password = newPassword;
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      user.password = hashedPassword;
       user.otp = undefined;
       await user.save();
 

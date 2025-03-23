@@ -190,7 +190,7 @@ module.exports = {
         }
       }
       const newAccessToken = jwt.sign(
-        { username: user._id, role: user.role },
+        { user_id: user._id, role: user.role } ,
         accessTokenSecret,
         { expiresIn: "15m" }
       );
