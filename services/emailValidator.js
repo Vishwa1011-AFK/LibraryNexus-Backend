@@ -1,6 +1,6 @@
 const { z } = require("zod");
 
-const emailPattern = new RegExp(`^.*@iiitm\\.ac\\.in$`);
+const emailPattern = /^[\w-]+(\.[\w-]+)*@iiitm\.ac\.in$/;
 
 const emailSchema = z.string().regex(emailPattern, {
   message: "Invalid email format. Expected format: *@iiitm.ac.in",

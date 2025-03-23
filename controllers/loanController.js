@@ -6,15 +6,13 @@ const { findUserByEmail, findUserById } = require("../services/userService");
 
 async function issueBook(req, res) {
   try {
-    const { isbn } = req.body;
-    const userEmail = req.body;
-
+    const { email, isbn } = req.body;
     const book = await Book.findOne({ isbn, issued: false });
     if (!book) {
       return res.status(404).json({ error: "No available copies" });
     }
 
-    const user = await findUserByEmail(userEmail);
+    const user = await findUserByEmail(email);
     if (!user || user.role !== "student") {
       return res.status(400).json({ message: "Invalid user or not a student" });
     }
@@ -39,7 +37,7 @@ async function issueBook(req, res) {
 
     res.status(201).json({ message: "Book issued successfully", loan });
 
-    scheduleEmailReminder(user.email, book.title, loan.returnDate);
+    scheduleEmailReminder(user.email, book._id, loan.returnDate);
   } catch (error) {
     console.error(error);
     res

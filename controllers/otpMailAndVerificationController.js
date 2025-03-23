@@ -143,7 +143,7 @@ module.exports = {
         });
       }
       
-      if (user.otpExpiry < Date.now()) {
+      if (new Date(user.otpExpiry) < new Date()) {
         user.otp = undefined;  // Invalidate OTP
         user.otpExpiry = undefined;
         await user.save();

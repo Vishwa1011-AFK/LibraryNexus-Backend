@@ -14,6 +14,7 @@ async function userExists(email, password) {
   let userExist = false;
 
   const existingUser = await User.findOne({ email });
+  if (!existingUser) return false;
   async function validate(password) {
     var valid = false;
     valid = await bcrypt.compare(password, existingUser.password);
@@ -166,7 +167,7 @@ module.exports = {
     }
   },
 
-  async createAccessToken(res, req) {
+  async createAccessToken(req, res) {
     const refreshToken = req.cookies.refreshToken;
     if (!refreshToken) return res.sendStatus(401);
     const refreshTokenDoc = await RefreshToken.findOne({ token: refreshToken }).populate('user');

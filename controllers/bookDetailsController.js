@@ -56,6 +56,7 @@ module.exports = {
     const book = new Book(req.body);
     try {
       await book.save();
+      const { isbn, title, author } = book;
       let inventory = await BookInventory.findOne({ isbn });
       if (inventory) {
         inventory.totalCopies += 1;
