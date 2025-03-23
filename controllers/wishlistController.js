@@ -4,7 +4,7 @@ const Book = require('../models/Books');
 
 async function getWishlist(req, res) {
   try {
-    const wishlist = await Wishlist.findOne({ userId: req.body.userId });
+    const wishlist = await Wishlist.findOne({ userId: new mongoose.Types.ObjectId(req.params.userId) });
     if (!wishlist) return res.status(404).send("Wishlist not found");
     res.json(wishlist);
   } catch (err) {

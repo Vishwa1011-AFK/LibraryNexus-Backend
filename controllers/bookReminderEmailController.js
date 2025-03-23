@@ -1,4 +1,3 @@
-// controllers/bookReminderEmailController.js
 const fs = require("fs");
 const path = require("path");
 const nodemailer = require("nodemailer");
@@ -74,12 +73,12 @@ async function scheduleEmailReminder(email, bookId, returnDate) {
 
         const cronSchedule = `${reminderDate.getMinutes()} ${reminderDate.getHours()} ${reminderDate.getDate()} ${reminderDate.getMonth() + 1} *`;
 
-        // Schedule the cron job to send the reminder email
+        const timezone = process.env.TZ || 'Asia/Kolkata'; 
         cron.schedule(cronSchedule, () => {
-            sendReminderEmail(email, bookId, returnDate);
+          sendReminderEmail(email, bookId, returnDate);
         }, {
-            scheduled: true,
-            timezone: 'Asia/Kolkata'
+          scheduled: true,
+          timezone: timezone
         });
 
         console.log(`Reminder scheduled for ${email} on ${reminderDate}`);

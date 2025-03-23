@@ -1,17 +1,14 @@
-// models/Books.js
 const mongoose = require("mongoose");
 
 const bookSchema = new mongoose.Schema({
   title: { type: String, required: true },
   author: { type: String, required: true },
   published_date: { type: String, required: true },
-  isbn: { type: String, required: true, unique: true }, // Add unique constraint
+  isbn: { type: String, required: true, unique: true }, 
   pages: { type: Number, required: true },
   cover: { type: String },
   language: { type: String, required: true },
   location: { type: String, required: true },
-  copies_available: { type: Number, required: true, default: 1 },
-  total_copies: { type: Number, required: true, default: 1 },
   status: {
     type: String,
     enum: ["available", "issued", "lost"],

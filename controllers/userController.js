@@ -46,14 +46,14 @@ module.exports = {
       if (existingUser) {
         return res.status(400).send("Username/Email Already Exists!");
       }
-
+      const hashedPassword = await bcrypt.hash(validatedData.password, 10);
       const user = new User({
         user_id: validatedData.user_id,
         firstName: validatedData.firstName,
         middleName: validatedData.middleName,
         lastName: validatedData.lastName,
         email: validatedData.email,
-        password: validatedData.password,
+        password: hashedPassword,
         birthDate: validatedData.birthDate,
       });
 

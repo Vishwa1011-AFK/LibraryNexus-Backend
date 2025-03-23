@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 
 const WishlistSchema = new mongoose.Schema({
-  userId: { type: String, required: true },
+  userId: { type: mongoose.Schema.Types.ObjectId, required: true, ref: "User" },
   books: [
     {
       isbn: { type: String, required: true },
