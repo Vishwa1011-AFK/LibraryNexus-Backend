@@ -1,15 +1,14 @@
 const Book = require("../models/Books");
 const BookInventory = require("../models/BookInventory");
-const { findBookIdByISBN } = require("../services/bookService");
 
 module.exports = {
   async getBookByISBN(req, res) {
     try {
       const book = await Book.findOne({ isbn: req.params.isbn });
-      if (!book) return res.status(404).send("Book not found");
+      if (!book) return res.status(404).json({ error: "Book not found" });
       res.json(book);
     } catch (error) {
-      res.status(500).send(error.message);
+      res.status(500).json({ error: "Internal server error" });
     }
   },
   async getBooks(req, res) {
@@ -17,45 +16,44 @@ module.exports = {
       const books = await Book.find();
       res.status(200).json(books);
     } catch (error) {
-      console.error("Error fetching books:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   },
-
   async getBookById(req, res) {
     try {
       const book = await Book.findById(req.params.id);
-      if (!book) return res.status(404).send("Book not found");
+      if (!book) return res.status(404).json({ error: "Book not found" });
       res.json(book);
     } catch (error) {
-      res.status(500).send(error.message);
+      res.status(500).json({ error: "Internal server error" });
     }
   },
-
   async getBookByTitle(req, res) {
     try {
-      const book = await Book.findOne({ title: req.params.title });
-      if (!book) return res.status(404).send("Book not found");
-      res.json(book);
+      const books = await Book.find({ title: req.params.title });
+      if (!books.length) return res.status(404).json({ error: "No books found" });
+      res.json(books);
     } catch (error) {
-      res.status(500).send(error.message);
+      res.status(500).json({ error: "Internal server error" });
     }
   },
-
   async getBookByAuthor(req, res) {
     try {
-      const book = await Book.findOne({ author: req.params.author });
-      if (!book) return res.status(404).send("Book not found");
-      res.json(book);
+      const books = await Book.find({ author: req.params.author });
+      if (!books.length) return res.status(404).json({ error: "No books found" });
+      res.json(books);
     } catch (error) {
-      res.status(500).send(error.message);
+      res.status(500).json({ error: "Internal server error" });
     }
   },
-
   async addBook(req, res) {
-    const book = new Book(req.body);
     try {
+      const existingBook = await Book.findOne({ isbn: req.body.isbn });
+      if (existingBook) return res.status(400).json({ error: "Book with this ISBN already exists" });
+
+      const book = new Book(req.body);
       await book.save();
+
       const { isbn, title, author } = book;
       let inventory = await BookInventory.findOne({ isbn });
       if (inventory) {
@@ -71,34 +69,31 @@ module.exports = {
         });
       }
       await inventory.save();
-      res.status(201).json("Book Saved Successfully.");
+      res.status(201).json({ message: "Book Saved Successfully" });
     } catch (error) {
-      res.status(400).send(error.message);
+      res.status(500).json({ error: "Internal server error" });
     }
   },
-
   async updateBook(req, res) {
     try {
-      const bookId = await findBookIdByISBN(req.params.isbn);
-      const book = await Book.findByIdAndUpdate(bookId, req.body, {
-        new: true,
-        runValidators: true,
-      });
-      if (!book) return res.status(404).send("Book not found");
+      const book = await Book.findOneAndUpdate(
+        { isbn: req.params.isbn },
+        req.body,
+        { new: true, runValidators: true }
+      );
+      if (!book) return res.status(404).json({ error: "Book not found" });
       res.json(book);
     } catch (error) {
-      res.status(400).send(error.message);
+      res.status(500).json({ error: "Internal server error" });
     }
   },
-
   async deleteBook(req, res) {
     try {
-      const bookId = await findBookIdByISBN(req.params.isbn);
-      const book = await Book.findByIdAndDelete(bookId);
-      if (!book) return res.status(404).send("Book not found");
-      res.status(204).send("Book Deleted Succesfully");
+      const book = await Book.findOneAndDelete({ isbn: req.params.isbn });
+      if (!book) return res.status(404).json({ error: "Book not found" });
+      res.status(204).json({ message: "Book Deleted Successfully" });
     } catch (error) {
-      res.status(500).send(error.message);
+      res.status(500).json({ error: "Internal server error" });
     }
   },
 };
