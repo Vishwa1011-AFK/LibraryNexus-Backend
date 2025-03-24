@@ -13,8 +13,19 @@ module.exports = {
   },
   async getBooks(req, res) {
     try {
-      const books = await Book.find();
-      res.status(200).json(books);
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+      const skip = (page - 1) * limit;
+  
+      const books = await Book.find().skip(skip).limit(limit);
+      const total = await Book.countDocuments();
+  
+      res.status(200).json({
+        books,
+        total,
+        page,
+        pages: Math.ceil(total / limit)
+      });
     } catch (error) {
       res.status(500).json({ error: "Internal server error" });
     }

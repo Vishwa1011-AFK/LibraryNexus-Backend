@@ -1,11 +1,16 @@
+const mongoose = require("mongoose")
 const Loan = require("../models/Loan");
 const Book = require("../models/Books");
 const BookInventory = require("../models/BookInventory");
 const { findUserByEmail, findUserById } = require("../services/userService");
-const { scheduleEmailReminder } = require("../controllers/bookReminderEmailController");
+
 
 async function issueBook(req, res) {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
+
     const { email, isbn } = req.body;
     const book = await Book.findOne({ isbn });
     if (!book) return res.status(404).json({ error: "Book not found" });
@@ -15,30 +20,32 @@ async function issueBook(req, res) {
       return res.status(400).json({ message: "Invalid user or not a student" });
     }
 
-    const inventory = await BookInventory.findOne({ isbn });
+    const inventory = await BookInventory.findOne({ isbn }).session(session);
     if (!inventory || inventory.availableCopies <= 0) {
+      await session.abortTransaction();
       return res.status(404).json({ error: "No available copies" });
     }
 
-    const loan = new Loan({
-      user: user._id,
-      book: book._id,
-    });
-
     inventory.availableCopies -= 1;
+    await inventory.save({ session });
+
+    const loan = new Loan({ user: user._id, book: book._id });
+    await loan.save({ session });
+
     book.issue_history.push({
       user_id: user._id,
       issue_date: loan.issueDate,
       due_date: loan.returnDate,
     });
+    await book.save({ session });
 
-    await Promise.all([loan.save(), inventory.save(), book.save()]);
-
+    await session.commitTransaction();
     res.status(201).json({ message: "Book issued successfully", loan });
-
-    scheduleEmailReminder(user.email, book._id, loan.returnDate);
   } catch (error) {
+    await session.abortTransaction();
     res.status(500).json({ error: "Internal server error" });
+  } finally {
+    session.endSession();
   }
 }
 
