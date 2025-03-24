@@ -164,21 +164,21 @@ module.exports = {
 
   async changePassword(req, res) {
     const { userId, currentPassword, newPassword } = req.body;
-
+  
     try {
       const user = await User.findById(userId);
       if (!user) return res.status(404).json({ error: "User not found." });
-
+  
       const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
       if (!isPasswordValid) return res.status(401).json({ error: "Invalid current password." });
-
+  
       const hashedPassword = await bcrypt.hash(newPassword, 10);
       user.password = hashedPassword;
       await user.save();
-
+  
       // Invalidate all refresh tokens for this user
       await RefreshToken.deleteMany({ user: userId });
-
+  
       res.status(200).json({ message: "Password changed successfully." });
     } catch (error) {
       console.error(error);

@@ -99,27 +99,27 @@ module.exports = {
     }
   },
   async verifyOTP(req, res) {
-    const email = req.body.email;
-    const otp = req.body.otp;
-    const newPassword = req.body.newPassword;
-
+    const { email, otp, newPassword } = req.body;
+  
     try {
-      const user = await userService.verifyOTP(email, otp);
-      if (!user) return res.status(403).json({ msg: "Invalid OTP" });
-
+      const user = await userService.findUserByEmail(email);
+      if (!user || user.otp !== otp) {
+        return res.status(403).json({ msg: "Invalid OTP" });
+      }
+  
       if (new Date(user.otpExpiry) < new Date()) {
         user.otp = undefined;
         user.otpExpiry = undefined;
         await user.save();
         return res.status(400).json({ msg: "OTP has expired" });
       }
-
+  
       const hashedPassword = await bcrypt.hash(newPassword, 10);
       user.password = hashedPassword;
-      user.otp = undefined; // Invalidate OTP
-      user.otpExpiry = undefined; // Invalidate OTP expiry
+      user.otp = undefined;
+      user.otpExpiry = undefined;
       await user.save();
-
+  
       res.json({ msg: "Password reset successfully" });
     } catch (error) {
       console.error("Error verifying OTP:", error);
