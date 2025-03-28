@@ -13,5 +13,6 @@ router.delete("/books/:id", adminController.adminDeleteBook);
 
 router.post("/loans/issue/:bookId", adminController.adminIssueBook);
 router.post("/loans/return/:loanId", adminController.adminReturnBook);
+router.get("/dashboard-stats", adminController.adminGetDashboardStats);
 
 module.exports = router;

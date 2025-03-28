@@ -394,4 +394,42 @@ async adminReturnBook(req, res) {
         session.endSession();
     }
 },
+async adminGetDashboardStats(req, res) {
+    try {
+        const totalBooksPromise = Book.countDocuments();
+        const activeBorrowsPromise = Loan.countDocuments({ returned: false });
+        const overdueBorrowsPromise = Loan.countDocuments({
+            returned: false,
+            returnDate: { $lt: new Date() }
+        });
+
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+        const startObjectId = mongoose.Types.ObjectId(Math.floor(startOfMonth.getTime() / 1000).toString(16) + "0000000000000000");
+        const endObjectId = mongoose.Types.ObjectId(Math.floor(endOfMonth.getTime() / 1000).toString(16) + "0000000000000000");
+
+        const newThisMonthPromise = Book.countDocuments({
+            _id: { $gte: startObjectId, $lte: endObjectId }
+        });
+
+        const [totalBooks, activeBorrows, overdueBorrows, newThisMonth] = await Promise.all([
+            totalBooksPromise,
+            activeBorrowsPromise,
+            overdueBorrowsPromise,
+            newThisMonthPromise
+        ]);
+
+        res.json({
+            totalBooks,
+            activeBorrows,
+            overdue: overdueBorrows,
+            newThisMonth
+        });
+
+    } catch (error) {
+        console.error("Error fetching admin dashboard stats:", error);
+        res.status(500).json({ error: "Internal server error fetching dashboard stats" });
+    }
+},
 };

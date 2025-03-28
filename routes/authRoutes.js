@@ -13,9 +13,6 @@ router.post("/verify-signup", otpMailAndVerificationController.verifySignupOTP);
 router.post("/forgot", otpMailAndVerificationController.initiateForgotPassword);
 router.post("/verify-reset", otpMailAndVerificationController.verifyPasswordResetOTP);
 
-router.get("/me", UserController.getCurrentUser);
-router.patch("/me", UserController.updateCurrentUserProfile);
-router.put("/me/password", UserController.changeCurrentUserPassword);
 
 router.get("/details/:id", UserController.findUserById);
 

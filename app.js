@@ -24,7 +24,6 @@ app.use(cors({
 }));
 
 app.options("*", cors());
-app.use(cookieParser());
 
 app.use(checkUser);
 

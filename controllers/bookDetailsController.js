@@ -93,13 +93,31 @@ module.exports = {
   },
   async getBookById(req, res) {
     try {
-      const book = await Book.findById(req.params.id);
-      if (!book) return res.status(404).json({ error: "Book not found" });
-      res.json(book);
+        const { id } = req.params;
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({ error: "Invalid Book ID format" });
+        }
+
+        const book = await Book.findById(id).lean();
+        if (!book) return res.status(404).json({ error: "Book not found" });
+
+        const inventory = await BookInventory.findOne({ isbn: book.isbn }).lean();
+
+        const bookDetail = {
+            ...book,
+            id: book._id,
+            coverUrl: book.cover,
+            available: (inventory?.availableCopies ?? 0) > 0,
+            publishDate: book.publishDate,
+            location: book.location
+        };
+
+        res.json(bookDetail);
     } catch (error) {
-      res.status(500).json({ error: "Internal server error" });
+        console.error(`Error fetching book by ID ${req.params.id}:`, error);
+        res.status(500).json({ error: "Internal server error" });
     }
-  },
+},
   async getCategories(req, res) {
     try {
       const categories = await Book.distinct("category", { category: { $ne: null, $ne: "" } });
