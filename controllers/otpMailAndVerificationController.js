@@ -2,7 +2,6 @@ require("dotenv").config();
 const fs = require("fs");
 const path = require("path");
 const nodemailer = require("nodemailer");
-const userService = require("../services/userService");
 const { generateOTP } = require("../utils/otpUtils");
 const appEmail = process.env.APP_EMAIL;
 const appPassword = process.env.APP_PASSWORD;

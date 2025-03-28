@@ -9,7 +9,6 @@ const { userSchema } = require("../types");
 const { findUserById } = require("../services/userService");
 const accessTokenSecret = process.env.ACCESS_TOKEN_SECRET;
 const refreshTokenSecret = process.env.REFRESH_TOKEN_SECRET;
-const { findUserById, findUserByEmail } = require("../services/userService");
 
 require("dotenv").config();
 

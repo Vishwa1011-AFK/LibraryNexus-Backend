@@ -9,6 +9,10 @@ const bookSchema = new mongoose.Schema({
   cover: { type: String },
   language: { type: String, required: true },
   location: { type: String, required: true },
+  publisher: { type: String },
+  category: { type: String, index: true },
+  featured: { type: Boolean, default: false, index: true },
+  description: { type: String },
   issue_history: [
     {
       user_id: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
@@ -17,16 +21,10 @@ const bookSchema = new mongoose.Schema({
       due_date: { type: Date },
     },
   ],
-  publisher: { type: String },
-  category: { type: String, index: true },
-  featured: { type: Boolean, default: false, index: true },
-  description: { type: String },
 });
 
 bookSchema.index({ title: 'text', author: 'text' });
 bookSchema.index({ author: 1 });
-bookSchema.index({ category: 1 });
-bookSchema.index({ featured: 1 });
 
 const Book = mongoose.model("Book", bookSchema);
 
