@@ -9,6 +9,7 @@ require("dotenv").config();
 const { findUserById } = require("../services/userService");
 const accessTokenSecret = process.env.ACCESS_TOKEN_SECRET;
 const refreshTokenSecret = process.env.REFRESH_TOKEN_SECRET;
+const { findUserById, findUserByEmail } = require("../services/userService");
 
 async function userExists(email, password) {
   const existingUser = await User.findOne({ email });
@@ -95,11 +96,42 @@ module.exports = {
 
   async findUserById(req, res) {
     try {
-      const user = await User.findOne({ _id: req.params.id });
+      const user = await findUserById(req.params.id);
       if (!user) return res.status(404).json({ message: "User not found" });
-      res.json(user);
+      const { password, otp, otpExpiry, __v, ...userData } = user.toObject();
+      res.json(userData);
     } catch (error) {
-      console.error("Error finding user:", error);
+      console.error("Error finding user by ID:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  },
+
+  async getCurrentUser(req, res) {
+    try {
+      if (!req.user || !req.user.user_id) {
+        return res.status(401).json({ message: "Authentication required." });
+      }
+
+      const userId = req.user.user_id;
+      const user = await findUserById(userId); 
+
+      if (!user) {
+        return res.status(404).json({ message: "User not found for token." });
+      }
+
+      res.json({
+        id: user._id, 
+        user_id: user.user_id, 
+        firstName: user.firstName,
+        middleName: user.middleName,
+        lastName: user.lastName,
+        email: user.email,
+        email_verified: user.email_verified,
+        birthDate: user.birthDate,
+        role: user.role,
+      });
+    } catch (error) {
+      console.error("Error fetching current user:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   },
@@ -176,7 +208,6 @@ module.exports = {
       user.password = hashedPassword;
       await user.save();
   
-      // Invalidate all refresh tokens for this user
       await RefreshToken.deleteMany({ user: userId });
   
       res.status(200).json({ message: "Password changed successfully." });

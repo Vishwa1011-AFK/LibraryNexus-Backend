@@ -5,16 +5,17 @@ const otpMailAndVerificationController = require("../controllers/otpMailAndVerif
 
 router.post("/signup", UserController.signup);
 router.post("/signin", UserController.signin);
-router.get("/details/:id", UserController.findUserById);
-router.post(
-  "/signup-otp",
-  otpMailAndVerificationController.initiateOTPVerification
-);
-router.post("/forgot", otpMailAndVerificationController.initiateForgotPassword);
-router.post("/verify", otpMailAndVerificationController.verifyOTP);
-router.patch("/profile/:id", UserController.updateUserProfile);
-router.post("/change_password", UserController.changePassword);
 router.post("/token", UserController.createAccessToken);
 router.post("/logout", UserController.logout);
+
+router.post("/signup-otp",otpMailAndVerificationController.initiateOTPVerification);
+router.post("/forgot", otpMailAndVerificationController.initiateForgotPassword);
+router.post("/verify", otpMailAndVerificationController.verifyOTP);
+router.post("/change_password", UserController.changePassword);
+
+router.get("/me", UserController.getCurrentUser);
+router.get("/details/:id", UserController.findUserById);
+router.patch("/profile/:id", UserController.updateUserProfile);
+router.post("/change_password", UserController.changePassword);
 
 module.exports = router;
