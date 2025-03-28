@@ -107,4 +107,13 @@ module.exports = {
       res.status(500).json({ error: "Internal server error" });
     }
   },
+  async getCategories(req, res) {
+    try {
+      const categories = await Book.distinct("category", { category: { $ne: null, $ne: "" } });
+      res.status(200).json(categories.sort());
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+      res.status(500).json({ error: "Internal server error fetching categories" });
+    }
+  },
 };

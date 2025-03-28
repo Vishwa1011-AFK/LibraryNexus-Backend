@@ -3,8 +3,8 @@ const mongoose = require("mongoose");
 const bookSchema = new mongoose.Schema({
   title: { type: String, required: true },
   author: { type: String, required: true },
-  published_date: { type: String, required: true },
-  isbn: { type: String, required: true, unique: true },
+  published_date: { type: Date, required: true },
+  isbn: { type: String, required: true, unique: true, index: true },
   pages: { type: Number, required: true },
   cover: { type: String },
   language: { type: String, required: true },
@@ -18,6 +18,9 @@ const bookSchema = new mongoose.Schema({
     },
   ],
   publisher: { type: String },
+  category: { type: String, index: true },
+  featured: { type: Boolean, default: false, index: true },
+  description: { type: String }
 });
 
 const Book = mongoose.model("Book", bookSchema);

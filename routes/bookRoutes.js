@@ -15,5 +15,6 @@ router.post("/update_book/:isbn", isAdmin, bookDetailsController.updateBook);
 router.post("/delete_book/:isbn", isAdmin, bookDetailsController.deleteBook);
 router.post("/issue", isAdmin, loanController.issueBook);
 router.post("/return", isAdmin, loanController.returnBook);
+router.get("/categories", bookDetailsController.getCategories);
 
 module.exports = router;
