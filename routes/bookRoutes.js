@@ -12,7 +12,8 @@ router.get("/books/isbn/:isbn", bookDetailsController.getBookByISBN);
 router.get("/books/title/:title", bookDetailsController.getBookByTitle);
 router.get("/books/author/:author", bookDetailsController.getBookByAuthor);
 
-router.get("/books_issued/:user_id", loanController.getIssuedBooks);
+router.post("/issue", loanController.issueBook);
+router.post("/return", loanController.returnBook);
 
 router.post("/issue", isAdmin, loanController.issueBook);
 router.post("/return", isAdmin, loanController.returnBook);

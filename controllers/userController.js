@@ -1,5 +1,6 @@
 const User = require("../models/Users");
 const RefreshToken = require("../models/RefreshToken");
+const Loan = require("../models/Loan");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const emailVerify = require("../services/emailValidator");
@@ -243,6 +244,104 @@ module.exports = {
     } catch (error) {
       console.error("Error changing current user password:", error);
       res.status(500).json({ error: "Internal server error changing password." });
+    }
+  },
+  async getCurrentUserBorrowedBooks(req, res) {
+    try {
+      const userId = req.user.user_id;
+      if (!userId) return res.status(401).json({ msg: "Authentication required" });
+      const { search } = req.query;
+      const query = { user: userId, returned: false };
+      const populateOptions = {
+        path: "book",
+        select: "title author isbn cover category publishDate location pages language publisher",
+      };
+      if (search) {
+        const searchRegex = new RegExp(search, "i");
+        populateOptions.match = {
+          $or: [
+            { title: searchRegex },
+            { author: searchRegex },
+            { isbn: searchRegex },
+            { category: searchRegex },
+          ],
+        };
+      }
+      let loans = await Loan.find(query).populate(populateOptions).sort({ issueDate: -1 }).lean();
+      if (search) loans = loans.filter((loan) => loan.book !== null);
+      const borrowedBooks = loans.map((loan) => ({
+        loanId: loan._id,
+        book: loan.book
+          ? {
+              id: loan.book._id,
+              title: loan.book.title,
+              author: loan.book.author,
+              isbn: loan.book.isbn,
+              coverUrl: loan.book.cover,
+              category: loan.book.category,
+              location: loan.book.location,
+              pages: loan.book.pages,
+              language: loan.book.language,
+              publisher: loan.book.publisher,
+              publishDate: loan.book.publishDate,
+            }
+          : null,
+        issueDate: loan.issueDate,
+        dueDate: loan.returnDate,
+      }));
+      res.json(borrowedBooks);
+    } catch (error) {
+      console.error("Error fetching borrowed books:", error);
+      res.status(500).json({ msg: "Internal server error fetching borrowed books" });
+    }
+  },
+  async getCurrentUserReadingHistory(req, res) {
+    try {
+      const userId = req.user.user_id;
+      if (!userId) return res.status(401).json({ msg: "Authentication required" });
+      const { search } = req.query;
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+      const skip = (page - 1) * limit;
+      const query = { user: userId, returned: true };
+      const populateOptions = {
+        path: "book",
+        select: "title author isbn cover category",
+      };
+      if (search) {
+        const searchRegex = new RegExp(search, "i");
+        populateOptions.match = {
+          $or: [
+            { title: searchRegex },
+            { author: searchRegex },
+            { isbn: searchRegex },
+            { category: searchRegex },
+          ],
+        };
+      }
+      const historyQuery = Loan.find(query).populate(populateOptions).sort({ returnDate: -1 }).skip(skip).limit(limit);
+      let historyLoans = await historyQuery.lean();
+      if (search) historyLoans = historyLoans.filter((loan) => loan.book !== null);
+      const total = await Loan.countDocuments(query);
+      const readingHistory = historyLoans.map((loan) => ({
+        loanId: loan._id,
+        book: loan.book
+          ? {
+              id: loan.book._id,
+              title: loan.book.title,
+              author: loan.book.author,
+              isbn: loan.book.isbn,
+              coverUrl: loan.book.cover,
+              category: loan.book.category,
+            }
+          : null,
+        issueDate: loan.issueDate,
+        completedDate: loan.returnDate,
+      }));
+      res.json({ history: readingHistory, total, page, totalPages: Math.ceil(total / limit) });
+    } catch (error) {
+      console.error("Error fetching reading history:", error);
+      res.status(500).json({ msg: "Internal server error fetching reading history" });
     }
   },
 };
