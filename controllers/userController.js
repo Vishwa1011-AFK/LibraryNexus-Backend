@@ -5,11 +5,13 @@ const bcrypt = require("bcryptjs");
 const emailVerify = require("../services/emailValidator");
 const mongoose = require("mongoose");
 const { userSchema } = require("../types");
-require("dotenv").config();
 const { findUserById } = require("../services/userService");
 const accessTokenSecret = process.env.ACCESS_TOKEN_SECRET;
 const refreshTokenSecret = process.env.REFRESH_TOKEN_SECRET;
 const { findUserById, findUserByEmail } = require("../services/userService");
+
+require("dotenv").config();
+
 
 async function userExists(email, password) {
   const existingUser = await User.findOne({ email });
@@ -136,24 +138,38 @@ module.exports = {
     }
   },
 
-  async updateUserProfile(req, res) {
+  async updateCurrentUserProfile(req, res) {
     try {
-      const { id } = req.params;
-      const validatedData = req.body;
+      const userId = req.user.user_id;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
 
-      const user = await findUserById(id);
-      if (!user) return res.status(404).json({ message: "User not found" });
+      const updateData = req.body;
+      const user = await findUserById(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found." });
+      }
 
-      if (validatedData.firstName) user.firstName = validatedData.firstName;
-      if (validatedData.middleName) user.middleName = validatedData.middleName;
-      if (validatedData.lastName) user.lastName = validatedData.lastName;
-      if (validatedData.birthDate) user.birthDate = validatedData.birthDate;
+      if (updateData.firstName !== undefined) user.firstName = updateData.firstName;
+      if (updateData.middleName !== undefined) user.middleName = updateData.middleName;
+      if (updateData.lastName !== undefined) user.lastName = updateData.lastName;
+      if (updateData.birthDate !== undefined) {
+        user.birthDate = new Date(updateData.birthDate);
+        if (isNaN(user.birthDate.getTime())) {
+          return res.status(400).json({ error: "Invalid birthDate format." });
+        }
+      }
 
       await user.save();
+      const { password, otp, otpExpiry, __v, ...userData } = user.toObject();
+      res.json({ user: userData, message: "Profile updated successfully" });
 
-      res.json({ user, message: "Profile updated successfully" });
     } catch (error) {
-      console.error(error);
+      console.error("Error updating current user profile:", error);
+      if (error.name === 'ValidationError') {
+        return res.status(400).json({ error: "Validation Error", details: error.message });
+      }
       res.status(500).json({ message: "An error occurred while updating the profile" });
     }
   },
@@ -194,26 +210,39 @@ module.exports = {
     res.sendStatus(204);
   },
 
-  async changePassword(req, res) {
-    const { userId, currentPassword, newPassword } = req.body;
-  
+  async changeCurrentUserPassword(req, res) {
+    const userId = req.user.user_id;
+    const { currentPassword, newPassword } = req.body;
+
+    if (!userId) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: "Both currentPassword and newPassword are required." });
+    }
+
     try {
       const user = await User.findById(userId);
-      if (!user) return res.status(404).json({ error: "User not found." });
-  
+      if (!user) {
+        return res.status(404).json({ error: "User not found." });
+      }
+
       const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
-      if (!isPasswordValid) return res.status(401).json({ error: "Invalid current password." });
-  
+      if (!isPasswordValid) {
+        return res.status(401).json({ error: "Invalid current password." });
+      }
+
       const hashedPassword = await bcrypt.hash(newPassword, 10);
       user.password = hashedPassword;
       await user.save();
-  
       await RefreshToken.deleteMany({ user: userId });
-  
-      res.status(200).json({ message: "Password changed successfully." });
+
+      res.clearCookie("refreshToken");
+      res.status(200).json({ message: "Password changed successfully. Please log in again." });
+
     } catch (error) {
-      console.error(error);
-      res.status(500).json({ error: "Internal server error." });
+      console.error("Error changing current user password:", error);
+      res.status(500).json({ error: "Internal server error changing password." });
     }
   },
 };

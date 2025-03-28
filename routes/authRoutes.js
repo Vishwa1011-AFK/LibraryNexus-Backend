@@ -14,8 +14,9 @@ router.post("/verify", otpMailAndVerificationController.verifyOTP);
 router.post("/change_password", UserController.changePassword);
 
 router.get("/me", UserController.getCurrentUser);
+router.patch("/me", UserController.updateCurrentUserProfile);
+router.put("/me/password", UserController.changeCurrentUserPassword);
+
 router.get("/details/:id", UserController.findUserById);
-router.patch("/profile/:id", UserController.updateUserProfile);
-router.post("/change_password", UserController.changePassword);
 
 module.exports = router;
