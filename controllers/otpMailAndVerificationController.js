@@ -7,6 +7,7 @@ const { generateOTP } = require("../utils/otpUtils");
 const appEmail = process.env.APP_EMAIL;
 const appPassword = process.env.APP_PASSWORD;
 const bcrypt = require("bcryptjs"); // Added import
+const userService = require("../services/userService");
 
 const transporter = nodemailer.createTransport({
   service: "gmail",
@@ -58,6 +59,39 @@ module.exports = {
       return res.status(500).json({ msg: "Internal server error" });
     }
   },
+  async verifySignupOTP(req, res) {
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+        return res.status(400).json({ msg: "Email and OTP are required." });
+    }
+
+    try {
+      const user = await userService.findUserByEmail(email);
+
+      if (!user || user.otp !== otp) {
+        return res.status(400).json({ msg: "Invalid OTP or email." });
+      }
+
+      if (new Date(user.otpExpiry) < new Date()) {
+        user.otp = undefined;
+        user.otpExpiry = undefined;
+        await user.save();
+        return res.status(400).json({ msg: "OTP has expired. Please request a new one." });
+      }
+
+      user.email_verified = true;
+      user.otp = undefined;
+      user.otpExpiry = undefined;
+      await user.save();
+
+      res.status(200).json({ msg: "Email verified successfully." });
+
+    } catch (error) {
+      console.error("Error verifying signup OTP:", error);
+      return res.status(500).json({ msg: "Internal server error" });
+    }
+  },
   async initiateForgotPassword(req, res) {
     const email = req.body.email;
 
@@ -98,31 +132,36 @@ module.exports = {
       return res.status(500).json({ msg: "Internal server error" });
     }
   },
-  async verifyOTP(req, res) {
+  async verifyPasswordResetOTP(req, res) {
     const { email, otp, newPassword } = req.body;
-  
+
+     if (!email || !otp || !newPassword) {
+         return res.status(400).json({ msg: "Email, OTP, and newPassword are required." });
+     }
+
     try {
       const user = await userService.findUserByEmail(email);
       if (!user || user.otp !== otp) {
-        return res.status(403).json({ msg: "Invalid OTP" });
+        return res.status(400).json({ msg: "Invalid OTP or email." });
       }
-  
+
       if (new Date(user.otpExpiry) < new Date()) {
         user.otp = undefined;
         user.otpExpiry = undefined;
         await user.save();
         return res.status(400).json({ msg: "OTP has expired" });
       }
-  
+
       const hashedPassword = await bcrypt.hash(newPassword, 10);
       user.password = hashedPassword;
       user.otp = undefined;
       user.otpExpiry = undefined;
+      user.email_verified = true;
       await user.save();
-  
+
       res.json({ msg: "Password reset successfully" });
     } catch (error) {
-      console.error("Error verifying OTP:", error);
+      console.error("Error verifying password reset OTP:", error);
       return res.status(500).json({ msg: "Internal server error" });
     }
   },

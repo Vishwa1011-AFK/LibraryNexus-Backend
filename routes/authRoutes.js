@@ -9,9 +9,9 @@ router.post("/token", UserController.createAccessToken);
 router.post("/logout", UserController.logout);
 
 router.post("/signup-otp",otpMailAndVerificationController.initiateOTPVerification);
+router.post("/verify-signup", otpMailAndVerificationController.verifySignupOTP);
 router.post("/forgot", otpMailAndVerificationController.initiateForgotPassword);
-router.post("/verify", otpMailAndVerificationController.verifyOTP);
-router.post("/change_password", UserController.changePassword);
+router.post("/verify-reset", otpMailAndVerificationController.verifyPasswordResetOTP);
 
 router.get("/me", UserController.getCurrentUser);
 router.patch("/me", UserController.updateCurrentUserProfile);

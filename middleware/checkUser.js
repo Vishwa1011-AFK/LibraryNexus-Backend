@@ -6,12 +6,19 @@ const allowedPaths = [
   "/api/auth/signup",
   "/api/auth/signin",
   "/api/auth/forgot",
-  "/api/auth/verify",
+  "/api/auth/verify-reset",
   "/api/auth/signup-otp",
+  "/api/auth/verify-signup",
   "/api/books",
-  "/api/books/:id",
   "/api/categories",
 ];
+
+const isPathAllowed = (path) => {
+  const lowerCasePath = path.toLowerCase();
+  if (allowedPaths.includes(lowerCasePath)) return true;
+  if (/^\/api\/books\/[^\/]+$/.test(lowerCasePath)) return true; 
+  return false;
+}
 
 async function checkUser(req, res, next) {
   if (req.method === "OPTIONS") {
