@@ -432,4 +432,178 @@ async adminGetDashboardStats(req, res) {
         res.status(500).json({ error: "Internal server error fetching dashboard stats" });
     }
 },
+async adminListUsers(req, res) {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 15;
+        const skip = (page - 1) * limit;
+
+        const filter = {};
+        if (req.query.search) {
+            const searchRegex = new RegExp(req.query.search, 'i');
+            filter.$or = [
+                { firstName: searchRegex },
+                { lastName: searchRegex },
+                { email: searchRegex },
+            ];
+        }
+        if (req.query.role && ['student', 'admin'].includes(req.query.role)) {
+            filter.role = req.query.role;
+        }
+        if (req.query.verified) {
+             filter.email_verified = req.query.verified === 'true';
+        }
+
+        let sort = {};
+         switch (req.query.sortBy) {
+            case 'name_asc': sort = { lastName: 1, firstName: 1 }; break;
+            case 'name_desc': sort = { lastName: -1, firstName: -1 }; break;
+            case 'email_asc': sort = { email: 1 }; break;
+            case 'email_desc': sort = { email: -1 }; break;
+            case 'role_asc': sort = { role: 1 }; break;
+            case 'role_desc': sort = { role: -1 }; break;
+            default: sort = { lastName: 1, firstName: 1 };
+        }
+
+        const usersQuery = User.find(filter)
+                            .select('-password -otp -otpExpiry -__v')
+                            .sort(sort)
+                            .skip(skip)
+                            .limit(limit);
+
+        const totalQuery = User.countDocuments(filter);
+
+        const [users, total] = await Promise.all([usersQuery.lean(), totalQuery]);
+
+        const formattedUsers = users.map(user => ({
+            ...user,
+            id: user._id
+        }));
+
+        res.status(200).json({
+            users: formattedUsers,
+            total,
+            page,
+            totalPages: Math.ceil(total / limit)
+        });
+
+    } catch (error) {
+        console.error("Error listing users:", error);
+        res.status(500).json({ error: "Internal server error listing users" });
+    }
+},
+async adminGetUserDetail(req, res) {
+    const { userId } = req.params;
+     if (!mongoose.Types.ObjectId.isValid(userId)) {
+        return res.status(400).json({ error: "Invalid User ID format" });
+    }
+    try {
+        const user = await User.findById(userId)
+                            .select('-password -otp -otpExpiry -__v')
+                            .lean();
+
+        if (!user) {
+            return res.status(404).json({ error: "User not found" });
+        }
+
+         const recentLoans = await Loan.find({ user: userId })
+                                     .sort({ issueDate: -1 })
+                                     .limit(5)
+                                     .populate('book', 'title isbn')
+                                     .lean();
+
+        res.status(200).json({ ...user, id: user._id, recentLoans });
+
+    } catch (error) {
+         console.error("Error fetching user detail:", error);
+         res.status(500).json({ error: "Internal server error fetching user detail" });
+    }
+},
+
+async adminUpdateUser(req, res) {
+    const { userId } = req.params;
+    const updateData = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+       return res.status(400).json({ error: "Invalid User ID format" });
+   }
+
+    const currentAdminId = req.user.user_id;
+    if (userId === currentAdminId.toString() && updateData.role && updateData.role !== 'admin') {
+         return res.status(403).json({ error: "Admin cannot change their own role." });
+    }
+
+    try {
+         const user = await User.findById(userId);
+         if (!user) {
+             return res.status(404).json({ error: "User not found" });
+         }
+
+         if (updateData.firstName !== undefined) user.firstName = updateData.firstName;
+         if (updateData.middleName !== undefined) user.middleName = updateData.middleName;
+         if (updateData.lastName !== undefined) user.lastName = updateData.lastName;
+         if (updateData.birthDate !== undefined) {
+              try { user.birthDate = new Date(updateData.birthDate); } catch(e) {}
+         }
+         if (updateData.role !== undefined && ['student', 'admin'].includes(updateData.role)) {
+             user.role = updateData.role;
+         }
+          if (updateData.email_verified !== undefined && typeof updateData.email_verified === 'boolean') {
+             user.email_verified = updateData.email_verified;
+         }
+          if (updateData.email || updateData.password) {
+              return res.status(400).json({ error: "Email and password cannot be updated via this endpoint." });
+          }
+
+         await user.save();
+
+         const { password, otp, otpExpiry, __v, ...updatedUserData } = user.toObject();
+         res.status(200).json({ user: { ...updatedUserData, id: updatedUserData._id }, message: "User updated successfully" });
+
+    } catch (error) {
+         console.error("Error updating user:", error);
+         if (error.name === 'ValidationError') {
+             return res.status(400).json({ error: "Validation Error", details: error.message });
+         }
+         res.status(500).json({ error: "Internal server error updating user" });
+    }
+},
+
+async adminDeleteUser(req, res) {
+     const { userId } = req.params;
+
+     if (!mongoose.Types.ObjectId.isValid(userId)) {
+        return res.status(400).json({ error: "Invalid User ID format" });
+     }
+
+     const currentAdminId = req.user.user_id;
+     if (userId === currentAdminId.toString()) {
+          return res.status(403).json({ error: "Admin cannot delete themselves." });
+     }
+
+     const session = await mongoose.startSession();
+     session.startTransaction();
+
+     try {
+         const user = await User.findById(userId).session(session);
+         if (!user) {
+              await session.abortTransaction(); session.endSession();
+             return res.status(404).json({ error: "User not found" });
+         }
+
+         await RefreshToken.deleteMany({ user: userId }).session(session);
+         await Wishlist.deleteOne({ userId: userId }).session(session);
+         await User.findByIdAndDelete(userId).session(session);
+
+         await session.commitTransaction();
+         res.status(200).json({ message: "User and associated data deleted successfully" });
+
+     } catch (error) {
+         await session.abortTransaction();
+         console.error("Error deleting user:", error);
+         res.status(500).json({ error: "Internal server error deleting user" });
+     } finally {
+         session.endSession();
+     }
+},
 };
