@@ -3,6 +3,8 @@ const Book = require("../models/Books");
 const BookInventory = require("../models/BookInventory");
 const Loan = require("../models/Loan");
 const Wishlist = require("../models/Wishlist");
+const User = require("../models/Users");
+const { findUserByEmail, findUserById } = require("../services/userService");
 
 module.exports = {
   async adminAddBook(req, res) {
@@ -235,5 +237,161 @@ module.exports = {
         console.error("Error listing admin books:", error);
         res.status(500).json({ error: "Internal server error listing admin books" });
     }
-}
+  },
+  async adminGetBookDetail(req, res) {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({ error: "Invalid Book ID format" });
+    }
+
+    try {
+        const book = await Book.findById(id).lean();
+        if (!book) {
+            return res.status(404).json({ error: "Book not found" });
+        }
+
+        const inventory = await BookInventory.findOne({ isbn: book.isbn }).lean();
+        const recentHistory = await Loan.find({ book: id })
+            .sort({ issueDate: -1 })
+            .limit(10)
+            .populate('user', 'firstName lastName email')
+            .lean();
+
+        const formattedHistory = recentHistory.map(loan => ({
+            id: loan._id,
+            userId: loan.user?._id,
+            userName: loan.user ? `${loan.user.firstName} ${loan.user.lastName}` : 'N/A',
+            userEmail: loan.user?.email,
+            issuedOn: loan.issueDate,
+            dueDate: loan.returnDate,
+            status: loan.returned ? "Submitted" : (new Date(loan.returnDate) < new Date() ? "Overdue" : "Issued")
+        }));
+
+        const bookDetail = {
+            ...book,
+            id: book._id,
+            coverUrl: book.cover,
+            totalCopies: inventory?.totalCopies ?? 0,
+            availableCopies: inventory?.availableCopies ?? 0,
+            status: (inventory?.availableCopies ?? 0) > 0 ? "Available" : "Unavailable",
+            issueHistory: formattedHistory,
+        };
+
+        res.status(200).json(bookDetail);
+    } catch (error) {
+        console.error("Error fetching admin book detail:", error);
+        res.status(500).json({ error: "Internal server error fetching admin book detail" });
+    }
+  },
+  async adminIssueBook(req, res) {
+    const { bookId } = req.params;
+    const { userId, issueDate } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(bookId)) {
+        return res.status(400).json({ error: "Invalid Book ID format" });
+    }
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+        return res.status(400).json({ error: "Valid User ID is required in the request body" });
+    }
+
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+        const book = await Book.findById(bookId).session(session);
+        if (!book) {
+            await session.abortTransaction(); session.endSession();
+            return res.status(404).json({ error: "Book not found" });
+        }
+
+        const user = await User.findById(userId).session(session);
+        if (!user) {
+            await session.abortTransaction(); session.endSession();
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        const inventory = await BookInventory.findOne({ isbn: book.isbn }).session(session);
+        if (!inventory || inventory.availableCopies <= 0) {
+            await session.abortTransaction(); session.endSession();
+            return res.status(400).json({ error: "No available copies to issue" });
+        }
+
+        const existingLoan = await Loan.findOne({ user: userId, book: bookId, returned: false }).session(session);
+        if (existingLoan) {
+            await session.abortTransaction(); session.endSession();
+            return res.status(400).json({ error: "User already has this book issued." });
+        }
+
+        inventory.availableCopies -= 1;
+        await inventory.save({ session });
+
+        const loanData = { user: userId, book: bookId };
+        if(issueDate) loanData.issueDate = new Date(issueDate);
+        const loan = new Loan(loanData);
+        if (issueDate) {
+            loan.returnDate = loan.constructor.schema.paths.returnDate.default.call(loan);
+        }
+        await loan.save({ session });
+
+        await session.commitTransaction();
+        res.status(201).json({ message: "Book issued successfully", loan });
+
+    } catch (error) {
+        await session.abortTransaction();
+        console.error("Error issuing book:", error);
+        res.status(500).json({ error: "Internal server error issuing book" });
+    } finally {
+        session.endSession();
+    }
+},
+
+async adminReturnBook(req, res) {
+    const { loanId } = req.params;
+    const { returnDate } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(loanId)) {
+        return res.status(400).json({ error: "Invalid Loan ID format" });
+    }
+
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+        const loan = await Loan.findById(loanId).session(session);
+        if (!loan) {
+            await session.abortTransaction(); session.endSession();
+            return res.status(404).json({ error: "Loan record not found" });
+        }
+        if (loan.returned) {
+            await session.abortTransaction(); session.endSession();
+            return res.status(400).json({ error: "Book has already been returned" });
+        }
+
+        const book = await Book.findById(loan.book).session(session);
+        if (!book) {
+            await session.abortTransaction(); session.endSession();
+            return res.status(404).json({ error: "Associated book not found" });
+        }
+
+        loan.returned = true;
+        loan.actualReturnDate = returnDate ? new Date(returnDate) : new Date();
+        await loan.save({ session });
+
+        const inventory = await BookInventory.findOne({ isbn: book.isbn }).session(session);
+        if (inventory) {
+            inventory.availableCopies += 1;
+            await inventory.save({ session });
+        }
+
+        await session.commitTransaction();
+        res.status(200).json({ message: "Book returned successfully", loan });
+
+    } catch (error) {
+        await session.abortTransaction();
+        console.error("Error returning book:", error);
+        res.status(500).json({ error: "Internal server error returning book" });
+    } finally {
+        session.endSession();
+    }
+},
 };

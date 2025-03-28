@@ -17,9 +17,11 @@ const loanSchema = new mongoose.Schema({
       return calculateReturnDate(this.issueDate || new Date());
     },
   },
-  returned: { type: Boolean, default: false },
+  returned: { type: Boolean, default: false, index: true },
+  actualReturnDate: { type: Date }
 });
 
-const Loan = mongoose.model("Loan", loanSchema);
+loanSchema.index({ user: 1, returned: 1 });
 
+const Loan = mongoose.model("Loan", loanSchema);
 module.exports = Loan;
