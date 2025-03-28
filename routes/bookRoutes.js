@@ -6,15 +6,15 @@ const { isAdmin } = require("../middleware/isAdmin");
 
 router.get("/books", bookDetailsController.getBooks);
 router.get("/books/:id", bookDetailsController.getBookById);
-router.get("/books_issued/:user_id", loanController.getIssuedBooks);
+router.get("/categories", bookDetailsController.getCategories);
+
 router.get("/books/isbn/:isbn", bookDetailsController.getBookByISBN);
 router.get("/books/title/:title", bookDetailsController.getBookByTitle);
 router.get("/books/author/:author", bookDetailsController.getBookByAuthor);
-router.post("/add_book", isAdmin, bookDetailsController.addBook);
-router.post("/update_book/:isbn", isAdmin, bookDetailsController.updateBook);
-router.post("/delete_book/:isbn", isAdmin, bookDetailsController.deleteBook);
+
+router.get("/books_issued/:user_id", loanController.getIssuedBooks);
+
 router.post("/issue", isAdmin, loanController.issueBook);
 router.post("/return", isAdmin, loanController.returnBook);
-router.get("/categories", bookDetailsController.getCategories);
 
 module.exports = router;

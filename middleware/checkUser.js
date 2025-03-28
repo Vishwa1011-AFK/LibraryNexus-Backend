@@ -8,27 +8,49 @@ const allowedPaths = [
   "/api/auth/forgot",
   "/api/auth/verify",
   "/api/auth/signup-otp",
+  "/api/books",
+  "/api/books/:id",
+  "/api/categories",
 ];
 
-function checkUser(req, res, next) {
-  if (
-    req.method === "OPTIONS" ||
-    allowedPaths.includes(req.path.toLowerCase())
-  ) {
+async function checkUser(req, res, next) {
+  if (req.method === "OPTIONS") {
+    return next();
+  }
+
+  if (isPathAllowed(req.path)) {
     return next();
   }
 
   const token = req.cookies.refreshToken;
+
   if (!token) {
     return res.status(401).json({ error: "Unauthorized - No token provided" });
   }
 
-  jwt.verify(token, refreshTokenSecret, (err, decoded) => {
-    if (err) {
-      return res.status(401).json({ error: "Unauthorized - Invalid token" });
+  try {
+    const decoded = jwt.verify(token, refreshTokenSecret);
+
+    const userExists = await User.findById(decoded.user_id);
+    if (!userExists) {
+      res.clearCookie("refreshToken");
+      return res.status(401).json({ error: "Unauthorized - User not found" });
     }
+
     req.user = decoded;
     next();
-  });
+
+  } catch (err) {
+    if (err.name === 'TokenExpiredError') {
+        res.clearCookie("refreshToken");
+        return res.status(401).json({ error: "Unauthorized - Token expired" });
+    }
+    if (err.name === 'JsonWebTokenError') {
+        res.clearCookie("refreshToken");
+        return res.status(401).json({ error: "Unauthorized - Invalid token" });
+    }
+    return res.status(500).json({ error: "Internal server error during authentication" });
+  }
 }
+
 module.exports = checkUser;
