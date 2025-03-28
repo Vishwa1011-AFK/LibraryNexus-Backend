@@ -29,7 +29,7 @@ app.use(checkUser);
 
 app.use("/api/", bookRoutes);
 app.use("/api/auth", authRoutes);
-app.use("/api/wishlist", wishlistRoutes);
+app.use("/api/users/wishlist", wishlistRoutes);
 app.use("/api/admin", adminRoutes); 
 
 app.use((err, req, res, next) => {
