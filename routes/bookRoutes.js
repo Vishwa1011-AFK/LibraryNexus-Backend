@@ -7,6 +7,7 @@ const { isAdmin } = require("../middleware/isAdmin");
 router.get("/books", bookDetailsController.getBooks);
 router.get("/books/:id", bookDetailsController.getBookById);
 router.get("/categories", bookDetailsController.getCategories);
+router.get("/authors", bookDetailsController.getAuthors);
 
 router.get("/books/isbn/:isbn", bookDetailsController.getBookByISBN);
 router.get("/books/title/:title", bookDetailsController.getBookByTitle);

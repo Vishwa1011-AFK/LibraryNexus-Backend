@@ -11,13 +11,14 @@ const allowedPaths = [
   "/api/auth/verify-signup",
   "/api/books",
   "/api/categories",
+  "/api/authors",
 ];
 
 const isPathAllowed = (path) => {
   const lowerCasePath = path.toLowerCase();
   if (allowedPaths.includes(lowerCasePath)) return true;
-  if (/^\/api\/books\/[^\/]+$/.test(lowerCasePath)) return true; 
-  return false;
+  if (/^\/api\/books\/[a-f0-9]{24}$/i.test(lowerCasePath)) return true;
+    return false;
 }
 
 async function checkUser(req, res, next) {

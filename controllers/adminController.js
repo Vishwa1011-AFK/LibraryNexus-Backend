@@ -142,4 +142,98 @@ module.exports = {
         session.endSession();
     }
   },
+  async adminListBooks(req, res) {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 15;
+        const skip = (page - 1) * limit;
+
+        const filter = {};
+        if (req.query.search) {
+            const searchRegex = new RegExp(req.query.search, 'i');
+            filter.$or = [
+                { title: searchRegex },
+                { author: searchRegex },
+                { isbn: searchRegex },
+                { category: searchRegex }
+            ];
+        }
+        if (req.query.category) {
+            filter.category = req.query.category;
+        }
+
+        let sort = {};
+        switch (req.query.sortBy) {
+            case 'title_asc': sort = { title: 1 }; break;
+            case 'title_desc': sort = { title: -1 }; break;
+            case 'author_asc': sort = { author: 1 }; break;
+            case 'author_desc': sort = { author: -1 }; break;
+            default: sort = { title: 1 };
+        }
+
+        const pipeline = [
+            { $match: filter },
+            { $sort: sort },
+            { $skip: skip },
+            { $limit: limit },
+            {
+                $lookup: {
+                    from: BookInventory.collection.name,
+                    localField: 'isbn',
+                    foreignField: 'isbn',
+                    as: 'inventoryInfo'
+                }
+            },
+            {
+                $unwind: {
+                    path: '$inventoryInfo',
+                    preserveNullAndEmptyArrays: true
+                }
+            },
+            {
+                $project: {
+                    _id: 1,
+                    title: 1,
+                    author: 1,
+                    category: 1,
+                    isbn: 1,
+                    cover: 1,
+                    publishDate: 1,
+                    location: 1,
+                    totalCopies: { $ifNull: ["$inventoryInfo.totalCopies", 0] },
+                    availableCopies: { $ifNull: ["$inventoryInfo.availableCopies", 0] },
+                    status: {
+                        $cond: {
+                            if: { $gt: [{ $ifNull: ["$inventoryInfo.availableCopies", 0] }, 0] },
+                            then: "Available",
+                            else: "Unavailable"
+                        }
+                    },
+                    addedDate: "$_id"
+                }
+            }
+        ];
+
+        const books = await Book.aggregate(pipeline);
+        const total = await Book.countDocuments(filter);
+
+        const formattedBooks = books.map(book => ({
+            ...book,
+            id: book._id,
+            coverUrl: book.cover,
+            added: book.addedDate.getTimestamp()
+        }));
+
+        res.status(200).json({
+            books: formattedBooks,
+            total: total,
+            page,
+            totalPages: Math.ceil(total / limit)
+        });
+
+    } catch (error) {
+        console.error("Error listing admin books:", error);
+        res.status(500).json({ error: "Internal server error listing admin books" });
+    }
+}
 };

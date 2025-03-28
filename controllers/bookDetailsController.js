@@ -109,4 +109,13 @@ module.exports = {
       res.status(500).json({ error: "Internal server error fetching categories" });
     }
   },
+  async getAuthors(req, res) {
+    try {
+        const authors = await Book.distinct("author", { author: { $ne: null, $ne: "" } });
+        res.status(200).json(authors.sort());
+    } catch (error) {
+        console.error("Error fetching authors:", error);
+        res.status(500).json({ error: "Internal server error fetching authors" });
+    }
+},
 };
