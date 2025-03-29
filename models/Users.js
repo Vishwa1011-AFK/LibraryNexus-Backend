@@ -3,10 +3,6 @@ const bcrypt = require("bcryptjs");
 
 const UserSchema = new mongoose.Schema(
   {
-    user_id: {
-      type: mongoose.Schema.Types.ObjectId,
-      unique: true,
-    },
     firstName: { type: String, required: [true] },
     middleName: { type: String },
     lastName: { type: String, required: [true] },
@@ -16,14 +12,6 @@ const UserSchema = new mongoose.Schema(
     birthDate: { type: Date },
     otp: { type: String },
     otpExpiry: { type: Date },
-    books_issued: [{ type: mongoose.Schema.Types.ObjectId, ref: "Book" }],
-    book_issue_history: [
-      {
-        book_id: { type: mongoose.Schema.Types.ObjectId, ref: "Book" },
-        issue_date: { type: Date },
-        return_date: { type: Date },
-      },
-    ],
     role: {
       type: String,
       enum: ["student", "admin"],

@@ -129,8 +129,8 @@ module.exports = {
         }
 
         await Wishlist.updateMany(
-            { 'books.isbn': bookIsbn },
-            { $pull: { books: { isbn: bookIsbn } } }
+            { 'books.bookId': id },
+            { $pull: { books: { bookId: id } } } 
         ).session(session);
 
         await session.commitTransaction();
@@ -589,6 +589,12 @@ async adminDeleteUser(req, res) {
          if (!user) {
               await session.abortTransaction(); session.endSession();
              return res.status(404).json({ error: "User not found" });
+         }
+
+         const activeLoans = await Loan.countDocuments({ user: userId, returned: false }).session(session);
+         if (activeLoans > 0) {
+            await session.abortTransaction(); session.endSession();
+            return res.status(400).json({ error: `Cannot delete user. They have ${activeLoans} book(s) currently issued.` });
          }
 
          await RefreshToken.deleteMany({ user: userId }).session(session);
