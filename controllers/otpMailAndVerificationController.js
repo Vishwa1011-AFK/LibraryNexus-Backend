@@ -5,7 +5,7 @@ const nodemailer = require("nodemailer");
 const { generateOTP } = require("../utils/otpUtils");
 const appEmail = process.env.APP_EMAIL;
 const appPassword = process.env.APP_PASSWORD;
-const bcrypt = require("bcryptjs"); // Added import
+const bcrypt = require("bcryptjs"); 
 const userService = require("../services/userService");
 
 const transporter = nodemailer.createTransport({
