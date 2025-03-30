@@ -13,14 +13,6 @@ const bookSchema = new mongoose.Schema({
   category: { type: String, index: true },
   featured: { type: Boolean, default: false, index: true },
   description: { type: String },
-  issue_history: [
-    {
-      user_id: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-      issue_date: { type: Date },
-      return_date: { type: Date },
-      due_date: { type: Date },
-    },
-  ],
 });
 
 bookSchema.index({ title: 'text', author: 'text' });

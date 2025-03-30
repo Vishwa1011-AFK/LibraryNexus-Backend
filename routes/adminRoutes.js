@@ -2,7 +2,10 @@ const express = require("express");
 const router = express.Router();
 const adminController = require("../controllers/adminController");
 const { isAdmin } = require("../middleware/isAdmin");
+const verifyAccessToken = require('../middleware/verifyAccessToken');
 
+
+router.use(verifyAccessToken);
 router.use(isAdmin);
 
 router.get("/dashboard-stats", adminController.adminGetDashboardStats);

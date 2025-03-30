@@ -38,7 +38,7 @@ module.exports = {
         attachments: [
           {
             filename: "logo.png",
-            path: `${__dirname}\\..\\mailing_objects\\logo.png`,
+            path: path.join(__dirname, '..', 'mailing_objects', 'logo.png'),
             cid: "logo1.xyz",
           },
         ],

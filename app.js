@@ -7,7 +7,6 @@ const bookRoutes = require("./routes/bookRoutes");
 const wishlistRoutes = require("./routes/wishlistRoutes");
 const userRoutes = require("./routes/userRoutes");
 const adminRoutes = require("./routes/adminRoutes");
-const checkUser = require("./middleware/checkUser");
 const cors = require("cors");
 
 require('dotenv').config();
@@ -25,13 +24,11 @@ app.use(cors({
 
 app.options("*", cors());
 
-app.use(checkUser);
-
 app.use("/api/", bookRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/users/wishlist", wishlistRoutes);
 app.use("/api/users", userRoutes);
-app.use("/api/admin", adminRoutes); 
+app.use("/api/admin", adminRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err.stack);
