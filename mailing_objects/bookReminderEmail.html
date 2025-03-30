@@ -16,14 +16,14 @@
         }
 
         .container {
-            background: linear-gradient(135deg, #dfec6c, #feb47b);
+            background: linear-gradient(135deg, #dee450, #c5ca3f);
             border-radius: 8px;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
             max-width: 600px;
             width: 100%;
             padding: 20px;
             text-align: left;
-            color: #fff;
+            color: #0d0f11;
         }
 
         .header {
@@ -40,7 +40,10 @@
         }
 
         .content {
-            color: #ffffff;
+            color: #0d0f11;
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 8px;
         }
 
         .content p {
@@ -52,6 +55,9 @@
             display: flex;
             align-items: flex-start;
             margin: 20px 0;
+            background-color: rgba(13, 15, 17, 0.05);
+            padding: 15px;
+            border-radius: 8px;
         }
 
         .book-cover {
@@ -59,13 +65,38 @@
             height: 150px;
             margin-right: 20px;
             border-radius: 4px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .book-info h2 {
+            margin-top: 0;
+            color: #0d0f11;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        .status-due-soon {
+            background-color: #d97921;
+            color: white;
+        }
+
+        .status-overdue {
+            background-color: #ff4d4d;
+            color: white;
         }
 
         .footer {
             margin-top: 20px;
             padding-top: 20px;
-            border-top: 1px solid rgba(255, 255, 255, 0.3);
-            color: rgba(255, 255, 255, 0.7);
+            border-top: 1px solid rgba(13, 15, 17, 0.3);
+            color: rgba(13, 15, 17, 0.7);
             font-size: 0.9em;
             text-align: center;
         }
@@ -75,8 +106,8 @@
         }
 
         .button {
-            background: #fff;
-            color: #00466a;
+            background: #0d0f11;
+            color: #dee450;
             border: none;
             padding: 15px 30px;
             font-size: 1em;
@@ -85,11 +116,15 @@
             margin-top: 20px;
             text-align: center;
             transition: all 0.3s ease;
+            display: block;
+            width: 200px;
+            margin: 20px auto;
+            text-decoration: none;
+            font-weight: bold;
         }
 
         .button:hover {
-            background: #00466a;
-            color: #fff;
+            background: #1a1d20;
         }
     </style>
 </head>
@@ -97,25 +132,29 @@
 <body>
     <div class="container">
         <div class="header">
-            <img src="cid:logo1.xyz" alt="Company Logo">
+            <img src="cid:logo1.svg" alt="Nexus Library Logo">
         </div>
         <div class="content">
-            <p>Hello,</p>
-            <p>This is a reminder to return the book you borrowed:</p>
+            <h2>Book Return Reminder</h2>
+            <p>Hello ${userName},</p>
+            <p>This is a reminder about the book you borrowed from Nexus Library:</p>
             <div class="book-details">
-                <img class="book-cover" src="{coverPhoto}" alt="{bookTitle}">
-                <div>
-                    <h2>{bookTitle}</h2>
-                    <p><strong>Author:</strong> {bookAuthor}</p>
-                    <p><strong>Return Date:</strong> {returnDate}</p>
+                <img class="book-cover" src="cid:book-cover.jpg" alt="${bookTitle}">
+                <div class="book-info">
+                    <h2>${bookTitle}</h2>
+                    <p><strong>Author:</strong> ${bookAuthor}</p>
+                    <p><strong>Borrowed Date:</strong> ${borrowedDate}</p>
+                    <p><strong>Due Date:</strong> ${dueDate}</p>
+                    <div class="status-badge ${statusClass}">${statusText}</div>
                 </div>
             </div>
-            <p>Please ensure to return the book by the due date to avoid any late fees.</p>
-            <p>Thank you!</p>
-            <p>Best regards,<br />The LibraryNexus Team</p>
+            <p>Please ensure you return the book by the due date to avoid any late fees. If you need more time, you can renew the book through your account on our website or mobile app.</p>
+            <p>Thank you for using Nexus Library!</p>
+            <p>Best regards,<br />The Nexus Library Team</p>
+            <a href="#" class="button">Renew Book</a>
         </div>
         <div class="footer">
-            <p>LibraryNexus Corporation</p>
+            <p>Nexus Library Management System</p>
             <p>ABV-Indian Institute of Information Technology and Management Gwalior,</p>
             <p>Morena Link Road, Gwalior, Madhya Pradesh, India, 474015</p>
         </div>

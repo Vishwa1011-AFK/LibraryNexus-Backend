@@ -37,8 +37,8 @@ module.exports = {
         html: fs.readFileSync(path.resolve(__dirname, "../mailing_objects/signup_otp.html"), "utf8"),
         attachments: [
           {
-            filename: "logo.png",
-            path: path.join(__dirname, '..', 'mailing_objects', 'logo.png'),
+            filename: "logo1.svg",
+            path: path.join(__dirname, '..', 'mailing_objects', 'logo1.svg'),
             cid: "logo1.xyz",
           },
         ],
@@ -110,8 +110,8 @@ module.exports = {
         html: fs.readFileSync(path.resolve(__dirname, "../mailing_objects/forgotPass.html"), "utf8"),
         attachments: [
           {
-            filename: "logo.png",
-            path: path.join(__dirname, '..', 'mailing_objects', 'logo.png'),
+            filename: "logo1.svg",
+            path: path.join(__dirname, '..', 'mailing_objects', 'logo1.svg'),
             cid: "logo1.xyz",
           },
         ],
