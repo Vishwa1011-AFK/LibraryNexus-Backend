@@ -9,6 +9,7 @@ const { userSchema } = require("../types");
 const { findUserById } = require("../services/userService");
 const accessTokenSecret = process.env.ACCESS_TOKEN_SECRET;
 const refreshTokenSecret = process.env.REFRESH_TOKEN_SECRET;
+const adminSignupCode = process.env.ADMIN_SIGNUP_CODE;
 
 require("dotenv").config();
 
@@ -22,10 +23,16 @@ async function userExists(email, password) {
 
 module.exports = {
   async signup(req, res) {
-    const validatedData = userSchema.parse({
-      ...req.body,
-      user_id: new mongoose.Types.ObjectId(),
-    });
+    let validatedData;
+    try {
+      validatedData = userSchema.parse({
+        ...req.body,
+        user_id: new mongoose.Types.ObjectId(),
+        adminCode: req.body.adminCode
+      });
+    } catch (e) {
+      return res.status(400).json({ message: "Validation failed", errors: e.errors });
+    }
 
     const isEmailValid = emailVerify.validateEmail(validatedData.email);
     if (!isEmailValid.valid) {
@@ -35,23 +42,31 @@ module.exports = {
     const existingUser = await User.findOne({ email: validatedData.email });
     if (existingUser) return res.status(400).send("Username/Email Already Exists!");
 
+    let userRole = "student";
+    if (validatedData.adminCode && adminSignupCode && validatedData.adminCode === adminSignupCode) {
+      userRole = "admin";
+      console.log(`Admin code matched for ${validatedData.email}. Setting role to admin.`);
+    } else if (validatedData.adminCode) {
+        console.log(`Admin code provided for ${validatedData.email} but did not match.`);
+    }
+
     const hashedPassword = await bcrypt.hash(validatedData.password, 10);
     const user = new User({
-      user_id: validatedData.user_id,
       firstName: validatedData.firstName,
       middleName: validatedData.middleName,
       lastName: validatedData.lastName,
       email: validatedData.email,
       password: hashedPassword,
       birthDate: validatedData.birthDate,
+      role: userRole,
     });
 
     try {
       await user.save();
       res.status(201).json({ msg: "User successfully created." });
     } catch (err) {
-      console.error(err);
-      res.status(500).send("Server error");
+      console.error("Error saving user:", err);
+      res.status(500).send("Server error during user creation");
     }
   },
 

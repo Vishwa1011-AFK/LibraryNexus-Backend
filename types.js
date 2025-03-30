@@ -17,6 +17,7 @@ const userSchema = z.object({
   birthDate: z.string().refine((date) => !isNaN(Date.parse(date)), {
     message: "Invalid birth date",
   }),
+  adminCode: z.string().optional(),
 });
 
 module.exports = { userSchema };

@@ -1,3 +1,5 @@
 .env
 /node_modules   
 package-lock.json
+seed.js
+isbn_list.txt
