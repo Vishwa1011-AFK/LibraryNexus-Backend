@@ -16,8 +16,10 @@ router.get("/books/:id", adminController.adminGetBookDetail);
 router.put("/books/:id", adminController.adminUpdateBook);
 router.delete("/books/:id", adminController.adminDeleteBook);
 
+router.get("/loans", adminController.adminListLoans); 
 router.post("/loans/issue/:bookId", adminController.adminIssueBook);
 router.post("/loans/return/:loanId", adminController.adminReturnBook);
+router.post("/loans/renew/:loanId", adminController.adminRenewLoan);
 
 router.get("/users", adminController.adminListUsers);
 router.get("/users/:userId", adminController.adminGetUserDetail);
