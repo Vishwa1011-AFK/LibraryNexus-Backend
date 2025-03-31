@@ -27,7 +27,6 @@ module.exports = {
     try {
       validatedData = userSchema.parse({
         ...req.body,
-        user_id: new mongoose.Types.ObjectId(),
         adminCode: req.body.adminCode
       });
     } catch (e) {
