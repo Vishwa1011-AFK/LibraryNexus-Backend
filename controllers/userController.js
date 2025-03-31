@@ -16,9 +16,9 @@ require("dotenv").config();
 
 async function userExists(email, password) {
   const existingUser = await User.findOne({ email });
-  if (!existingUser) return false;
+  if (!existingUser) return { exists: false, user: null };
   const valid = await bcrypt.compare(password, existingUser.password);
-  return valid;
+  return { exists: valid, user: existingUser };
 }
 
 module.exports = {
@@ -39,7 +39,7 @@ module.exports = {
     }
 
     const existingUser = await User.findOne({ email: validatedData.email });
-    if (existingUser) return res.status(400).send("Username/Email Already Exists!");
+    if (existingUser) return res.status(400).json({ msg: "Username/Email Already Exists!" });
 
     let userRole = "student";
     if (validatedData.adminCode && adminSignupCode && validatedData.adminCode === adminSignupCode) {
@@ -65,7 +65,10 @@ module.exports = {
       res.status(201).json({ msg: "User successfully created." });
     } catch (err) {
       console.error("Error saving user:", err);
-      res.status(500).send("Server error during user creation");
+       if (err.code === 11000) {
+           return res.status(400).json({ msg: "Username/Email Already Exists!" });
+       }
+      res.status(500).json({ msg: "Server error during user creation" });
     }
   },
 
@@ -73,10 +76,11 @@ module.exports = {
     const email = req.body.email;
     const password = req.body.password;
 
-    if (!(await userExists(email, password))) {
-      return res.status(403).json({ msg: "User doesn't exist in our database" });
+    const { exists, user: existingUser } = await userExists(email, password);
+
+    if (!exists || !existingUser) {
+      return res.status(403).json({ msg: "Invalid email or password" });
     }
-    const existingUser = await User.findOne({ email });
 
     const tokenPayload = {
       user_id: existingUser._id,
@@ -84,38 +88,61 @@ module.exports = {
     };
 
     const userDetails = {
+      id: existingUser._id,
       firstName: existingUser.firstName,
       middleName: existingUser.middleName,
       lastName: existingUser.lastName,
       email: existingUser.email,
       birthDate: existingUser.birthDate,
+      role: existingUser.role,
+      email_verified: existingUser.email_verified,
     };
 
     const accessToken = jwt.sign(tokenPayload, accessTokenSecret, { expiresIn: "15m" });
     const refreshToken = jwt.sign(tokenPayload, refreshTokenSecret, { expiresIn: "30d" });
 
-    await RefreshToken.create({
-      token: refreshToken,
-      user: existingUser._id,
-      expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-    });
+    try {
+        await RefreshToken.create({
+            token: refreshToken,
+            user: existingUser._id,
+            expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        });
 
-    res.cookie("refreshToken", refreshToken, { httpOnly: true, secure: true });
+        const cookieOptions = {
+            httpOnly: true,
+            path: '/',
+            maxAge: 30 * 24 * 60 * 60 * 1000,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'Lax'
+        };
+        res.cookie("refreshToken", refreshToken, cookieOptions);
 
-    return res.json({
-      accessToken: accessToken,
-      msg: "Login Successful",
-      user: tokenPayload,
-      userdetails: userDetails,
-    });
+        return res.json({
+            accessToken: accessToken,
+            msg: "Login Successful",
+            user: {
+                id: existingUser._id.toString(),
+                role: existingUser.role,
+                firstName: existingUser.firstName,
+                lastName: existingUser.lastName,
+                email: existingUser.email,
+                email_verified: existingUser.email_verified,
+            },
+             userdetails: userDetails
+        });
+
+    } catch (dbError) {
+         console.error("Error saving refresh token:", dbError);
+         return res.status(500).json({ msg: "Login failed due to server error." });
+    }
   },
 
-  async findUserById(req, res) {
+   async findUserById(req, res) {
     try {
       const user = await findUserById(req.params.id);
       if (!user) return res.status(404).json({ message: "User not found" });
       const { password, otp, otpExpiry, __v, ...userData } = user.toObject();
-      res.json(userData);
+      res.json({ ...userData, id: userData._id });
     } catch (error) {
       console.error("Error finding user by ID:", error);
       res.status(500).json({ message: "Internal server error" });
@@ -125,19 +152,19 @@ module.exports = {
   async getCurrentUser(req, res) {
     try {
       if (!req.user || !req.user.user_id) {
-        return res.status(401).json({ message: "Authentication required." });
+        return res.status(401).json({ error: "Authentication required." });
       }
 
       const userId = req.user.user_id;
-      const user = await findUserById(userId); 
+      const user = await findUserById(userId);
 
       if (!user) {
-        return res.status(404).json({ message: "User not found for token." });
+         console.warn(`User ID ${userId} from token not found in DB.`);
+        return res.status(404).json({ error: "User not found for token." });
       }
 
       res.json({
-        id: user._id, 
-        user_id: user.user_id, 
+        id: user._id.toString(),
         firstName: user.firstName,
         middleName: user.middleName,
         lastName: user.lastName,
@@ -145,10 +172,11 @@ module.exports = {
         email_verified: user.email_verified,
         birthDate: user.birthDate,
         role: user.role,
+        isAdmin: user.role === 'admin',
       });
     } catch (error) {
       console.error("Error fetching current user:", error);
-      res.status(500).json({ message: "Internal server error" });
+      res.status(500).json({ error: "Internal server error" });
     }
   },
 
@@ -160,24 +188,52 @@ module.exports = {
       }
 
       const updateData = req.body;
-      const user = await findUserById(userId);
+      const user = await User.findById(userId);
       if (!user) {
         return res.status(404).json({ message: "User not found." });
       }
 
-      if (updateData.firstName !== undefined) user.firstName = updateData.firstName;
-      if (updateData.middleName !== undefined) user.middleName = updateData.middleName;
-      if (updateData.lastName !== undefined) user.lastName = updateData.lastName;
-      if (updateData.birthDate !== undefined) {
-        user.birthDate = new Date(updateData.birthDate);
-        if (isNaN(user.birthDate.getTime())) {
-          return res.status(400).json({ error: "Invalid birthDate format." });
+      let hasChanges = false;
+      if (updateData.firstName !== undefined && updateData.firstName !== user.firstName) {
+          user.firstName = updateData.firstName;
+          hasChanges = true;
+      }
+      if (updateData.middleName !== undefined && updateData.middleName !== user.middleName) {
+          user.middleName = updateData.middleName || '';
+          hasChanges = true;
         }
+      if (updateData.lastName !== undefined && updateData.lastName !== user.lastName) {
+          user.lastName = updateData.lastName;
+          hasChanges = true;
+        }
+      if (updateData.birthDate !== undefined) {
+          try {
+              const newDate = new Date(updateData.birthDate);
+              if (isNaN(newDate.getTime())) {
+                  return res.status(400).json({ error: "Invalid birthDate format." });
+              }
+               const existingDate = user.birthDate ? new Date(user.birthDate) : null;
+               if (!existingDate || newDate.toISOString().split('T')[0] !== existingDate.toISOString().split('T')[0]) {
+                  user.birthDate = newDate;
+                  hasChanges = true;
+               }
+          } catch (e) {
+               return res.status(400).json({ error: "Invalid birthDate value." });
+          }
+      }
+
+      if (!hasChanges) {
+          return res.status(200).json({ message: "No changes detected." });
       }
 
       await user.save();
       const { password, otp, otpExpiry, __v, ...userData } = user.toObject();
-      res.json({ user: userData, message: "Profile updated successfully" });
+      const responseUser = {
+          ...userData,
+          id: userData._id.toString(),
+          isAdmin: userData.role === 'admin'
+      };
+      res.json({ user: responseUser, message: "Profile updated successfully" });
 
     } catch (error) {
       console.error("Error updating current user profile:", error);
@@ -190,42 +246,83 @@ module.exports = {
 
   async createAccessToken(req, res) {
     const refreshToken = req.cookies.refreshToken;
-    if (!refreshToken) return res.sendStatus(401);
 
-    const refreshTokenDoc = await RefreshToken.findOne({ token: refreshToken }).populate('user');
-    if (!refreshTokenDoc) return res.sendStatus(403);
+    if (!refreshToken) {
+        console.log("Refresh token request received, but no token found in cookies.");
+        return res.status(401).json({ error: "Refresh token missing." });
+     }
 
-    if (refreshTokenDoc.expiryDate < new Date()) {
-      await RefreshToken.findByIdAndDelete(refreshTokenDoc._id);
-      return res.status(401).json({ error: "Token Expired" });
-    }
+    try {
+        const refreshTokenDoc = await RefreshToken.findOne({ token: refreshToken });
 
-    jwt.verify(refreshToken, refreshTokenSecret, (err, user) => {
-      if (err) {
-        if (err.name === "TokenExpiredError") {
-          return res.status(401).json({ error: "Token Expired" });
-        } else {
-          return res.sendStatus(403);
+        if (!refreshTokenDoc) {
+             console.log(`Refresh token received (${refreshToken.substring(0,10)}...) but not found in DB.`);
+             res.clearCookie("refreshToken");
+             return res.status(403).json({ error: "Invalid refresh token." });
         }
-      }
-      const newAccessToken = jwt.sign(
-        { user_id: user._id, role: user.role },
-        accessTokenSecret,
-        { expiresIn: "15m" }
-      );
-      res.json({ accessToken: newAccessToken });
-    });
+
+        if (refreshTokenDoc.expiryDate < new Date()) {
+            console.log(`Refresh token (${refreshToken.substring(0,10)}...) found but expired.`);
+            await RefreshToken.findByIdAndDelete(refreshTokenDoc._id);
+            res.clearCookie("refreshToken");
+            return res.status(401).json({ error: "Refresh token expired." });
+        }
+
+        jwt.verify(refreshToken, refreshTokenSecret, (err, decodedPayload) => {
+            if (err) {
+                console.error("Refresh token verification failed:", err.name);
+                 if (err.name === 'TokenExpiredError') {
+                     return res.status(401).json({ error: "Refresh token expired (JWT verification)." });
+                 }
+                 return res.status(403).json({ error: "Invalid refresh token signature." });
+            }
+
+             if (!decodedPayload || !decodedPayload.user_id || decodedPayload.user_id !== refreshTokenDoc.user.toString()) {
+                 console.error("Refresh token payload mismatch or missing user_id.");
+                 return res.status(403).json({ error: "Token payload mismatch." });
+             }
+
+            const newAccessTokenPayload = {
+                user_id: decodedPayload.user_id,
+                role: decodedPayload.role
+            };
+
+            if (!newAccessTokenPayload.role) {
+                 console.warn("Role missing in refresh token payload, cannot include in access token.");
+            }
+
+
+            const newAccessToken = jwt.sign(
+                newAccessTokenPayload,
+                accessTokenSecret,
+                { expiresIn: "15m" }
+            );
+
+            console.log(`Access token refreshed for user ${decodedPayload.user_id}`);
+            res.json({ accessToken: newAccessToken });
+        });
+
+    } catch (dbError) {
+        console.error("Database error during token refresh:", dbError);
+        res.status(500).json({ error: "Server error during token refresh." });
+    }
   },
 
   async logout(req, res) {
     const refreshToken = req.cookies.refreshToken;
-    await RefreshToken.findOneAndDelete({ token: refreshToken });
-    res.clearCookie("refreshToken");
-    res.sendStatus(204);
+    if (refreshToken) {
+        try {
+            await RefreshToken.findOneAndDelete({ token: refreshToken });
+        } catch (err) {
+             console.error("Error deleting refresh token during logout:", err);
+        }
+    }
+    res.clearCookie("refreshToken", { path: '/' });
+    res.status(204).send();
   },
 
   async changeCurrentUserPassword(req, res) {
-    const userId = req.user.user_id;
+    const userId = req.user?.user_id;
     const { currentPassword, newPassword } = req.body;
 
     if (!userId) {
@@ -233,6 +330,12 @@ module.exports = {
     }
     if (!currentPassword || !newPassword) {
       return res.status(400).json({ error: "Both currentPassword and newPassword are required." });
+    }
+    if (newPassword.length < 8) {
+        return res.status(400).json({ error: "New password must be at least 8 characters." });
+    }
+    if (currentPassword === newPassword) {
+         return res.status(400).json({ error: "New password cannot be the same as the current password." });
     }
 
     try {
@@ -249,9 +352,10 @@ module.exports = {
       const hashedPassword = await bcrypt.hash(newPassword, 10);
       user.password = hashedPassword;
       await user.save();
+
       await RefreshToken.deleteMany({ user: userId });
 
-      res.clearCookie("refreshToken");
+      res.clearCookie("refreshToken", { path: '/' });
       res.status(200).json({ message: "Password changed successfully. Please log in again." });
 
     } catch (error) {
@@ -261,7 +365,7 @@ module.exports = {
   },
   async getCurrentUserBorrowedBooks(req, res) {
     try {
-      const userId = req.user.user_id;
+      const userId = req.user?.user_id;
       if (!userId) return res.status(401).json({ msg: "Authentication required" });
       const { search } = req.query;
       const query = { user: userId, returned: false };
@@ -281,7 +385,9 @@ module.exports = {
         };
       }
       let loans = await Loan.find(query).populate(populateOptions).sort({ issueDate: -1 }).lean();
+
       if (search) loans = loans.filter((loan) => loan.book !== null);
+
       const borrowedBooks = loans.map((loan) => ({
         loanId: loan._id,
         book: loan.book
@@ -310,32 +416,67 @@ module.exports = {
   },
   async getCurrentUserReadingHistory(req, res) {
     try {
-      const userId = req.user.user_id;
+      const userId = req.user?.user_id;
       if (!userId) return res.status(401).json({ msg: "Authentication required" });
       const { search } = req.query;
       const page = parseInt(req.query.page) || 1;
       const limit = parseInt(req.query.limit) || 10;
       const skip = (page - 1) * limit;
-      const query = { user: userId, returned: true };
+
+      const baseQuery = { user: userId, returned: true };
+
       const populateOptions = {
         path: "book",
         select: "title author isbn cover category",
       };
+
+      let matchQuery = {};
       if (search) {
-        const searchRegex = new RegExp(search, "i");
-        populateOptions.match = {
-          $or: [
-            { title: searchRegex },
-            { author: searchRegex },
-            { isbn: searchRegex },
-            { category: searchRegex },
-          ],
-        };
-      }
-      const historyQuery = Loan.find(query).populate(populateOptions).sort({ returnDate: -1 }).skip(skip).limit(limit);
-      let historyLoans = await historyQuery.lean();
-      if (search) historyLoans = historyLoans.filter((loan) => loan.book !== null);
-      const total = await Loan.countDocuments(query);
+          const searchRegex = new RegExp(search, 'i');
+           matchQuery = {
+                $or: [
+                    { 'book.title': searchRegex },
+                    { 'book.author': searchRegex },
+                    { 'book.isbn': searchRegex },
+                    { 'book.category': searchRegex },
+                ],
+           };
+       }
+
+       const pipeline = [
+           { $match: baseQuery },
+           { $sort: { actualReturnDate: -1 } },
+           {
+                $lookup: {
+                   from: 'books',
+                   localField: 'book',
+                   foreignField: '_id',
+                   as: 'bookInfo'
+                }
+           },
+           { $unwind: { path: '$bookInfo', preserveNullAndEmptyArrays: true } },
+           { $addFields: { book: '$bookInfo' } },
+           { $match: matchQuery },
+           {
+                $facet: {
+                    paginatedResults: [
+                        { $skip: skip },
+                        { $limit: limit },
+                         { $project: { bookInfo: 0 } }
+                    ],
+                    totalCount: [
+                        { $count: 'count' }
+                    ]
+                }
+           }
+       ];
+
+       const results = await Loan.aggregate(pipeline);
+
+       const historyLoans = results[0].paginatedResults;
+       const total = results[0].totalCount.length > 0 ? results[0].totalCount[0].count : 0;
+
+
       const readingHistory = historyLoans.map((loan) => ({
         loanId: loan._id,
         book: loan.book
@@ -349,8 +490,9 @@ module.exports = {
             }
           : null,
         issueDate: loan.issueDate,
-        completedDate: loan.returnDate,
+        completedDate: loan.actualReturnDate || loan.returnDate,
       }));
+
       res.json({ history: readingHistory, total, page, totalPages: Math.ceil(total / limit) });
     } catch (error) {
       console.error("Error fetching reading history:", error);
